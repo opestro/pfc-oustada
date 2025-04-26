@@ -8,6 +8,8 @@ let sensorData = {
   distance: 0,
   motion: false,
   noise: 40,
+  irObjectTemp: 36.5,
+  irAmbientTemp: 25.0,
   lastUpdated: new Date().toISOString()
 };
 
@@ -62,6 +64,8 @@ router.post('/esp32', (req, res) => {
     if (data.distance !== undefined) sensorData.distance = data.distance;
     if (data.motion !== undefined) sensorData.motion = data.motion;
     if (data.noise !== undefined) sensorData.noise = data.noise;
+    if (data.irObjectTemp !== undefined) sensorData.irObjectTemp = data.irObjectTemp;
+    if (data.irAmbientTemp !== undefined) sensorData.irAmbientTemp = data.irAmbientTemp;
     
     sensorData.lastUpdated = new Date().toISOString();
     

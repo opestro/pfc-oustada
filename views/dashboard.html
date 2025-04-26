@@ -124,7 +124,7 @@
                     <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center mr-3">
                         <i class="fas fa-temperature-high text-red-500"></i>
                     </div>
-                    <h3 class="font-medium text-gray-700">Temperature</h3>
+                    <h3 class="font-medium text-gray-700">DHT22 Temperature</h3>
                 </div>
                 <div class="p-6 flex flex-col justify-center items-center">
                     <div class="text-5xl font-light text-gray-800" id="temperature-value">--</div>
@@ -132,6 +132,20 @@
                 </div>
             </div>
 
+            <!-- IR Temperature Card -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+                <div class="flex items-center p-4 border-b border-gray-100">
+                    <div class="w-10 h-10 rounded-full bg-pink-100 flex items-center justify-center mr-3">
+                        <i class="fas fa-thermometer text-pink-500"></i>
+                    </div>
+                    <h3 class="font-medium text-gray-700">IR Temperature</h3>
+                </div>
+                <div class="p-6 flex flex-col justify-center items-center">
+                    <div class="text-5xl font-light text-gray-800" id="ir-temp-value">--</div>
+                    <div class="text-gray-500 mt-2">Degrees Celsius</div>
+                </div>
+            </div>
+            
             <!-- Humidity Card -->
             <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
                 <div class="flex items-center p-4 border-b border-gray-100">
@@ -222,10 +236,10 @@
                     <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center mr-3">
                         <i class="fas fa-chart-line text-green-500"></i>
                     </div>
-                    <h3 class="font-medium text-gray-700">Distance & Noise</h3>
+                    <h3 class="font-medium text-gray-700">IR Temp & Distance</h3>
                 </div>
                 <div class="h-80">
-                    <canvas id="distance-noise-chart" height="300"></canvas>
+                    <canvas id="ir-distance-chart" height="300"></canvas>
                 </div>
             </div>
         </div>
@@ -262,5 +276,255 @@
 
     <!-- Custom JavaScript -->
     <script src="/js/dashboard.js"></script>
+    <script>
+        // Add this to your existing JavaScript or add to dashboard.js file
+        document.addEventListener('DOMContentLoaded', function() {
+            const socket = io();
+            
+            // Connect to server
+            socket.on('connect', function() {
+                console.log('Connected to server');
+                document.getElementById('connection-status-desktop').innerText = 'Connected';
+                document.getElementById('connection-status-mobile').innerText = 'Connected';
+            });
+            
+            // Disconnect from server
+            socket.on('disconnect', function() {
+                console.log('Disconnected from server');
+                document.getElementById('connection-status-desktop').innerText = 'Disconnected';
+                document.getElementById('connection-status-mobile').innerText = 'Disconnected';
+            });
+            
+            // Update sensor values
+            socket.on('sensor-update', function(data) {
+                console.log('Sensor update received:', data);
+                
+                // Update temperature value
+                if (data.temperature !== undefined) {
+                    document.getElementById('temperature-value').innerText = data.temperature.toFixed(1);
+                }
+                
+                // Update IR temperature value
+                if (data.irObjectTemp !== undefined) {
+                    document.getElementById('ir-temp-value').innerText = data.irObjectTemp.toFixed(1);
+                }
+                
+                // Update humidity value
+                if (data.humidity !== undefined) {
+                    document.getElementById('humidity-value').innerText = data.humidity.toFixed(1);
+                }
+                
+                // Update distance value
+                if (data.distance !== undefined) {
+                    document.getElementById('distance-value').innerText = data.distance.toFixed(1);
+                }
+                
+                // Update noise value
+                if (data.noise !== undefined) {
+                    document.getElementById('noise-value').innerText = data.noise;
+                }
+                
+                // Update motion status
+                if (data.motion !== undefined) {
+                    document.getElementById('motion-value').innerText = data.motion ? 'Motion Detected' : 'No Motion';
+                    document.getElementById('motion-value').className = data.motion ? 'text-3xl font-light text-red-600' : 'text-3xl font-light text-gray-800';
+                }
+                
+                // Update last updated time
+                const now = new Date();
+                const timeString = now.toLocaleTimeString();
+                document.getElementById('last-updated-desktop').innerText = timeString;
+                document.getElementById('last-updated-mobile').innerText = timeString;
+                
+                // Update charts if they exist
+                updateCharts(data);
+            });
+            
+            // Camera update
+            socket.on('camera-update', function(data) {
+                if (data.image) {
+                    document.getElementById('camera-feed').src = 'data:image/jpeg;base64,' + data.image;
+                }
+            });
+            
+            // Initialize charts
+            let tempHumidityChart, irDistanceChart;
+            
+            function initCharts() {
+                // Temperature and Humidity Chart
+                const tempHumidityCtx = document.getElementById('temp-humidity-chart').getContext('2d');
+                tempHumidityChart = new Chart(tempHumidityCtx, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'Temperature (°C)',
+                            data: [],
+                            borderColor: '#EF4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }, {
+                            label: 'Humidity (%)',
+                            data: [],
+                            borderColor: '#3B82F6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                            }
+                        },
+                        scales: {
+                            x: {
+                                display: true,
+                                title: {
+                                    display: false
+                                }
+                            },
+                            y: {
+                                display: true,
+                                title: {
+                                    display: false
+                                }
+                            }
+                        }
+                    }
+                });
+                
+                // IR Temperature and Distance Chart
+                const irDistanceCtx = document.getElementById('ir-distance-chart').getContext('2d');
+                irDistanceChart = new Chart(irDistanceCtx, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'IR Temperature (°C)',
+                            data: [],
+                            borderColor: '#EC4899',
+                            backgroundColor: 'rgba(236, 72, 153, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }, {
+                            label: 'Distance (cm)',
+                            data: [],
+                            borderColor: '#10B981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                            }
+                        },
+                        scales: {
+                            x: {
+                                display: true,
+                                title: {
+                                    display: false
+                                }
+                            },
+                            y: {
+                                display: true,
+                                title: {
+                                    display: false
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            function updateCharts(data) {
+                if (!tempHumidityChart || !irDistanceChart) {
+                    initCharts();
+                }
+                
+                const now = new Date();
+                const timeString = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                
+                // Update temperature and humidity chart
+                if (tempHumidityChart.data.labels.length > 10) {
+                    tempHumidityChart.data.labels.shift();
+                    tempHumidityChart.data.datasets[0].data.shift();
+                    tempHumidityChart.data.datasets[1].data.shift();
+                }
+                
+                tempHumidityChart.data.labels.push(timeString);
+                tempHumidityChart.data.datasets[0].data.push(data.temperature);
+                tempHumidityChart.data.datasets[1].data.push(data.humidity);
+                tempHumidityChart.update();
+                
+                // Update IR temperature and distance chart
+                if (irDistanceChart.data.labels.length > 10) {
+                    irDistanceChart.data.labels.shift();
+                    irDistanceChart.data.datasets[0].data.shift();
+                    irDistanceChart.data.datasets[1].data.shift();
+                }
+                
+                irDistanceChart.data.labels.push(timeString);
+                irDistanceChart.data.datasets[0].data.push(data.irObjectTemp);
+                irDistanceChart.data.datasets[1].data.push(data.distance);
+                irDistanceChart.update();
+            }
+            
+            // Fetch initial data
+            fetch('/api/data')
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success && result.data) {
+                        // Update UI with initial data
+                        const data = result.data;
+                        
+                        if (data.temperature !== undefined) {
+                            document.getElementById('temperature-value').innerText = data.temperature.toFixed(1);
+                        }
+                        
+                        if (data.irObjectTemp !== undefined) {
+                            document.getElementById('ir-temp-value').innerText = data.irObjectTemp.toFixed(1);
+                        }
+                        
+                        if (data.humidity !== undefined) {
+                            document.getElementById('humidity-value').innerText = data.humidity.toFixed(1);
+                        }
+                        
+                        if (data.distance !== undefined) {
+                            document.getElementById('distance-value').innerText = data.distance.toFixed(1);
+                        }
+                        
+                        if (data.noise !== undefined) {
+                            document.getElementById('noise-value').innerText = data.noise;
+                        }
+                        
+                        if (data.motion !== undefined) {
+                            document.getElementById('motion-value').innerText = data.motion ? 'Motion Detected' : 'No Motion';
+                            document.getElementById('motion-value').className = data.motion ? 'text-3xl font-light text-red-600' : 'text-3xl font-light text-gray-800';
+                        }
+                        
+                        if (data.lastUpdated) {
+                            const date = new Date(data.lastUpdated);
+                            const timeString = date.toLocaleTimeString();
+                            document.getElementById('last-updated-desktop').innerText = timeString;
+                            document.getElementById('last-updated-mobile').innerText = timeString;
+                        }
+                        
+                        // Initialize charts with initial data
+                        updateCharts(data);
+                    }
+                })
+                .catch(error => console.error('Error fetching data:', error));
+        });
+    </script>
 </body>
 </html> 

@@ -7,20 +7,23 @@
  * - ESP32 development board
  * - DHT22 temperature and humidity sensor
  * - HC-SR04 ultrasonic distance sensor
- * - PIR motion sensor (or IR sensor)
  * - Sound sensor module
+ * - MLX90614 infrared temperature sensor
  * 
  * Libraries needed:
  * - WiFi.h (built-in)
  * - HTTPClient.h (built-in)
  * - ArduinoJson.h (install via Library Manager)
  * - DHT.h (DHT sensor library by Adafruit)
+ * - Adafruit_MLX90614.h (Adafruit MLX90614 library)
  */
 
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <DHT.h>
+#include <Wire.h>
+#include <Adafruit_MLX90614.h>
 
 // WiFi credentials
 const char* ssid = "OnePlus 11R 5G";
@@ -38,11 +41,11 @@ DHT dht(DHTPIN, DHTTYPE);
 #define TRIG_PIN 4
 #define ECHO_PIN 2
 
-// PIR Motion sensor pin
-// #define MOTION_PIN 19
-
 // Sound sensor pin
-#define SOUND_PIN 19
+#define SOUND_PIN 34  // Using pin 34 for analog input (ADC)
+
+// Initialize MLX90614 sensor
+Adafruit_MLX90614 mlx = Adafruit_MLX90614();
 
 // Update interval (milliseconds)
 const unsigned long updateInterval = 5000;
@@ -52,15 +55,24 @@ void setup() {
   Serial.begin(115200);
   Serial.println("\nESP32 Sensor Monitor Starting...");
   
+  // Initialize I2C for MLX90614
+  Wire.begin();
+  
   // Initialize pins
   pinMode(TRIG_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
-  // pinMode(MOTION_PIN, INPUT);
   pinMode(SOUND_PIN, INPUT);
   
   // Initialize DHT sensor
   dht.begin();
   Serial.println("DHT22 sensor initialized");
+  
+  // Initialize MLX90614 sensor
+  if (!mlx.begin()) {
+    Serial.println("Error connecting to MLX sensor. Check wiring.");
+  } else {
+    Serial.println("MLX90614 IR sensor initialized");
+  }
   
   // Connect to WiFi
   connectToWiFi();
@@ -84,9 +96,12 @@ void loop() {
     float temperature = dht.readTemperature();
     float humidity = dht.readHumidity();
     float distance = readUltrasonicDistance();
-    // bool motion = digitalRead(MOTION_PIN) == HIGH;
     bool motion = false; // No motion sensor connected, using false as default
     int noiseLevel = readNoiseLevel();
+    
+    // Read IR temperature from MLX90614
+    float objectTemp = mlx.readObjectTempC();
+    float ambientTemp = mlx.readAmbientTempC();
     
     // Check if any reads failed
     if (isnan(temperature) || isnan(humidity)) {
@@ -97,13 +112,21 @@ void loop() {
     
     // Print sensor values to Serial Monitor
     Serial.println("\n----- Sensor Readings -----");
-    Serial.print("Temperature: ");
+    Serial.print("Temperature (DHT22): ");
     Serial.print(temperature);
     Serial.println(" °C");
     
     Serial.print("Humidity: ");
     Serial.print(humidity);
     Serial.println(" %");
+    
+    Serial.print("IR Object Temperature: ");
+    Serial.print(objectTemp);
+    Serial.println(" °C");
+    
+    Serial.print("IR Ambient Temperature: ");
+    Serial.print(ambientTemp);
+    Serial.println(" °C");
     
     Serial.print("Distance: ");
     Serial.print(distance);
@@ -113,13 +136,10 @@ void loop() {
     Serial.print(noiseLevel);
     Serial.println(" dB");
     
-    // Serial.print("Motion Detected: ");
-    // Serial.println(motion ? "YES" : "NO");
-    
     Serial.println("---------------------------");
     
     // Send data to server
-    sendSensorData(temperature, humidity, distance, motion, noiseLevel);
+    sendSensorData(temperature, humidity, distance, motion, noiseLevel, objectTemp, ambientTemp);
   }
 }
 
@@ -163,8 +183,16 @@ float readUltrasonicDistance() {
 }
 
 int readNoiseLevel() {
-  // Read the analog value from the sound sensor
-  int soundValue = analogRead(SOUND_PIN);
+  // Read the analog value from the sound sensor - average several readings for stability
+  int soundValue = 0;
+  int samples = 10;
+  
+  for(int i = 0; i < samples; i++) {
+    soundValue += analogRead(SOUND_PIN);
+    delay(1);
+  }
+  
+  soundValue = soundValue / samples;
   
   // Map the analog value to a dB range (approximate)
   // This is just a rough estimation, calibration needed for accuracy
@@ -173,19 +201,21 @@ int readNoiseLevel() {
   return dbValue;
 }
 
-void sendSensorData(float temperature, float humidity, float distance, bool motion, int noiseLevel) {
+void sendSensorData(float temperature, float humidity, float distance, bool motion, int noiseLevel, float objectTemp, float ambientTemp) {
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
     http.begin(serverUrl);
     http.addHeader("Content-Type", "application/json");
     
     // Create JSON document
-    StaticJsonDocument<200> doc;
+    StaticJsonDocument<256> doc;
     doc["temperature"] = temperature;
     doc["humidity"] = humidity;
     doc["distance"] = distance;
     doc["motion"] = motion;
     doc["noise"] = noiseLevel;
+    doc["irObjectTemp"] = objectTemp;
+    doc["irAmbientTemp"] = ambientTemp;
     
     String jsonData;
     serializeJson(doc, jsonData);
