@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Chart.js for graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Socket.IO client -->
+    <script src="/socket.io/socket.io.js"></script>
+    <!-- Font Awesome for better icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/styles.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-100 min-h-screen font-['Roboto']">
+    <!-- Top Navigation Bar -->
+    <nav class="bg-white shadow-md">
+        <div class="container mx-auto px-4">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center">
+                    <i class="fas fa-microchip text-primary-600 text-2xl mr-3"></i>
+                    <h1 class="text-2xl font-['Playfair_Display'] text-gray-800">IoT Dashboard</h1>
+                </div>
+                <div class="hidden md:flex items-center space-x-4 text-sm">
+                    <a href="#" class="text-primary-600 font-medium border-b-2 border-primary-500 px-2 py-1">Dashboard</a>
+                    <a href="#" class="text-gray-600 hover:text-primary-600 px-2 py-1">Sensors</a>
+                    <a href="#" class="text-gray-600 hover:text-primary-600 px-2 py-1">Analytics</a>
+                    <a href="#" class="text-gray-600 hover:text-primary-600 px-2 py-1">Settings</a>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <div class="flex items-center text-sm">
+                        <div class="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
+                        <span id="connection-status-desktop" class="text-gray-600">Connected</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Mobile Navigation Bar -->
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 text-gray-700 z-30 shadow-lg">
+        <div class="flex justify-around items-center">
+            <a href="#" class="flex flex-col items-center py-2 px-3 text-primary-600">
+                <i class="fas fa-tachometer-alt text-lg"></i>
+                <span class="text-xs mt-1">Dashboard</span>
+            </a>
+            <a href="#" class="flex flex-col items-center py-2 px-3 text-gray-500">
+                <i class="fas fa-temperature-high text-lg"></i>
+                <span class="text-xs mt-1">Sensors</span>
+            </a>
+            <a href="#" class="flex flex-col items-center py-2 px-3 text-gray-500">
+                <i class="fas fa-chart-line text-lg"></i>
+                <span class="text-xs mt-1">Analytics</span>
+            </a>
+            <a href="#" class="flex flex-col items-center py-2 px-3 text-gray-500">
+                <i class="fas fa-cog text-lg"></i>
+                <span class="text-xs mt-1">Settings</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 pt-6 pb-20 md:pb-8">
+        <!-- Status Bar -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+            <div class="flex flex-wrap justify-between items-center">
+                <div class="flex items-center">
+                    <i class="fas fa-info-circle text-primary-500 mr-2"></i>
+                    <h2 class="text-gray-700 font-medium">System Status</h2>
+                </div>
+                <div class="flex items-center space-x-6 text-sm text-gray-600">
+                    <div class="flex items-center md:hidden">
+                        <div class="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
+                        <span id="connection-status-mobile">Connected</span>
+                    </div>
+                    <div>
+                        <span>Last updated: <span id="last-updated-mobile" class="font-medium">Waiting...</span></span>
+                    </div>
+                    <div class="hidden md:block">
+                        <span>Last updated: <span id="last-updated-desktop" class="font-medium">Waiting...</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Dashboard Title -->
+        <div class="mb-6">
+            <h2 class="text-2xl font-['Playfair_Display'] text-gray-800">ESP32 Monitoring System</h2>
+            <p class="text-gray-500">Real-time sensor data visualization</p>
+        </div>
+        
+        <!-- Sensor Data Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <!-- Temperature Card -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+                <div class="flex items-center p-4 border-b border-gray-100">
+                    <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center mr-3">
+                        <i class="fas fa-temperature-high text-red-500"></i>
+                    </div>
+                    <h3 class="font-medium text-gray-700">Temperature</h3>
+                </div>
+                <div class="p-6 flex flex-col justify-center items-center">
+                    <div class="text-5xl font-light text-gray-800" id="temperature-value">--</div>
+                    <div class="text-gray-500 mt-2">Degrees Celsius</div>
+                </div>
+            </div>
+
+            <!-- Humidity Card -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+                <div class="flex items-center p-4 border-b border-gray-100">
+                    <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                        <i class="fas fa-tint text-blue-500"></i>
+                    </div>
+                    <h3 class="font-medium text-gray-700">Humidity</h3>
+                </div>
+                <div class="p-6 flex flex-col justify-center items-center">
+                    <div class="text-5xl font-light text-gray-800" id="humidity-value">--</div>
+                    <div class="text-gray-500 mt-2">Percent</div>
+                </div>
+            </div>
+
+            <!-- Distance Card -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+                <div class="flex items-center p-4 border-b border-gray-100">
+                    <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center mr-3">
+                        <i class="fas fa-ruler text-green-500"></i>
+                    </div>
+                    <h3 class="font-medium text-gray-700">Distance</h3>
+                </div>
+                <div class="p-6 flex flex-col justify-center items-center">
+                    <div class="text-5xl font-light text-gray-800" id="distance-value">--</div>
+                    <div class="text-gray-500 mt-2">Centimeters</div>
+                </div>
+            </div>
+
+            <!-- Motion Card -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+                <div class="flex items-center p-4 border-b border-gray-100">
+                    <div class="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center mr-3">
+                        <i class="fas fa-running text-yellow-500"></i>
+                    </div>
+                    <h3 class="font-medium text-gray-700">Motion (IR)</h3>
+                </div>
+                <div class="p-6 flex flex-col justify-center items-center">
+                    <div class="text-3xl font-light text-gray-800" id="motion-value">No Motion</div>
+                    <div class="text-gray-500 mt-2">Status</div>
+                </div>
+            </div>
+
+            <!-- Noise Card -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+                <div class="flex items-center p-4 border-b border-gray-100">
+                    <div class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center mr-3">
+                        <i class="fas fa-volume-up text-purple-500"></i>
+                    </div>
+                    <h3 class="font-medium text-gray-700">Noise Level</h3>
+                </div>
+                <div class="p-6 flex flex-col justify-center items-center">
+                    <div class="text-5xl font-light text-gray-800" id="noise-value">--</div>
+                    <div class="text-gray-500 mt-2">Decibels</div>
+                </div>
+            </div>
+
+            <!-- Camera Card -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+                <div class="flex items-center p-4 border-b border-gray-100">
+                    <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center mr-3">
+                        <i class="fas fa-camera text-indigo-500"></i>
+                    </div>
+                    <h3 class="font-medium text-gray-700">ESP32 Cam</h3>
+                </div>
+                <div class="p-6 flex justify-center items-center">
+                    <div class="w-full h-32 overflow-hidden relative camera-container border border-gray-200 rounded-md">
+                        <img id="camera-feed" src="/images/no-image.png" alt="Camera Feed" class="max-h-full max-w-full object-contain absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Charts Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 h-96">
+                <div class="flex items-center mb-4">
+                    <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                        <i class="fas fa-chart-line text-blue-500"></i>
+                    </div>
+                    <h3 class="font-medium text-gray-700">Temperature & Humidity</h3>
+                </div>
+                <div class="h-80">
+                    <canvas id="temp-humidity-chart" height="300"></canvas>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 h-96">
+                <div class="flex items-center mb-4">
+                    <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center mr-3">
+                        <i class="fas fa-chart-line text-green-500"></i>
+                    </div>
+                    <h3 class="font-medium text-gray-700">Distance & Noise</h3>
+                </div>
+                <div class="h-80">
+                    <canvas id="distance-noise-chart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- System Info -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+            <div class="flex items-center mb-4">
+                <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center mr-3">
+                    <i class="fas fa-info-circle text-gray-500"></i>
+                </div>
+                <h3 class="font-medium text-gray-700">System Information</h3>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="border border-gray-200 rounded-md p-3 bg-gray-50">
+                    <h4 class="text-sm font-medium text-gray-500">ESP32 Status</h4>
+                    <p class="text-lg font-medium text-gray-800">Online</p>
+                </div>
+                <div class="border border-gray-200 rounded-md p-3 bg-gray-50">
+                    <h4 class="text-sm font-medium text-gray-500">Server Uptime</h4>
+                    <p class="text-lg font-medium text-gray-800">2 hours 15 min</p>
+                </div>
+                <div class="border border-gray-200 rounded-md p-3 bg-gray-50">
+                    <h4 class="text-sm font-medium text-gray-500">Data Points Today</h4>
+                    <p class="text-lg font-medium text-gray-800">1,245</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <footer class="text-center text-gray-500 text-sm mt-8 mb-16 md:mb-4">
+            <p>© 2023 ESP32 IoT Dashboard. All rights reserved.</p>
+        </footer>
+    </main>
+
+    <!-- Custom JavaScript -->
+    <script src="/js/dashboard.js"></script>
+</body>
+</html> 

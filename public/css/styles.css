@@ -1,0 +1,230 @@
+/* Custom styles for IoT Dashboard */
+
+/* Base styles */
+body {
+  font-family: 'Roboto', sans-serif;
+  overflow-x: hidden;
+  color: #333;
+  background-color: #f8f9fa;
+}
+
+h1, h2, h3, .font-display {
+  font-family: 'Playfair Display', serif;
+}
+
+/* Animation for motion detection */
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.text-red-500.motion-detected {
+  animation: pulse 1.5s infinite;
+}
+
+/* Smooth transitions */
+#temperature-value,
+#humidity-value,
+#distance-value,
+#noise-value,
+#motion-value {
+  transition: all 0.5s ease-in-out;
+}
+
+/* Top Navigation */
+nav.bg-white {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+nav a {
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #0ea5e9;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #0284c7;
+}
+
+/* Chart styles */
+.h-80 {
+  height: 20rem;
+  min-height: 300px;
+  position: relative;
+}
+
+canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Mobile Navigation Bar */
+nav.md\:hidden {
+  bottom: 0;
+  height: 60px;
+  z-index: 50;
+  box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.1);
+}
+
+nav.md\:hidden a {
+  transition: all 0.2s ease;
+}
+
+nav.md\:hidden a:active {
+  transform: translateY(2px);
+}
+
+/* Card styles */
+.card {
+  background-color: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out;
+}
+
+.sensor-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.sensor-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Status indicators */
+.rounded-full {
+  transition: background-color 0.3s ease;
+}
+
+/* Camera container */
+.camera-container {
+  background-color: #f9fafb;
+  border-radius: 0.25rem;
+  overflow: hidden;
+}
+
+/* Loading spinner for camera */
+.camera-loading {
+  position: relative;
+}
+
+.camera-loading:before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 30px;
+  height: 30px;
+  margin: -15px 0 0 -15px;
+  border: 3px solid rgba(14, 165, 233, 0.3);
+  border-radius: 50%;
+  border-top-color: #0ea5e9;
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Classic UI elements */
+.border {
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+.shadow-sm {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 1023px) {
+  /* Bottom spacing for mobile nav bar */
+  .pb-20 {
+    padding-bottom: 5rem !important;
+  }
+  
+  /* Adjust main container */
+  .container {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 0.75rem;
+  }
+  
+  .text-5xl {
+    font-size: 2.25rem;
+  }
+  
+  /* Adjust card spacing */
+  .gap-6 {
+    gap: 0.75rem;
+  }
+  
+  /* Make sure charts are visible on mobile */
+  .mb-6 {
+    margin-bottom: 1.25rem;
+  }
+  
+  .h-96 {
+    height: 20rem;
+  }
+  
+  .h-80 {
+    height: 18rem;
+    min-height: 250px;
+  }
+}
+
+@media (max-width: 640px) {
+  .text-5xl {
+    font-size: 2rem;
+  }
+  
+  .h-96 {
+    height: 18rem;
+  }
+  
+  .h-80 {
+    height: 14rem;
+    min-height: 200px;
+  }
+  
+  /* Smaller padding for mobile */
+  .p-4 {
+    padding: 0.75rem;
+  }
+  
+  /* Adjust mobile nav */
+  nav.md\:hidden a {
+    padding: 0.5rem 0.25rem;
+  }
+  
+  nav.md\:hidden .text-xs {
+    font-size: 0.65rem;
+  }
+} 

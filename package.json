@@ -1,0 +1,23 @@
+{
+  "name": "pfc-oustada",
+  "version": "1.0.0",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["iot", "esp32", "dashboard", "sensors"],
+  "author": "",
+  "license": "ISC",
+  "description": "IoT Dashboard for ESP32 with multiple sensors",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
