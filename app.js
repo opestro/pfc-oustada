@@ -17,14 +17,26 @@ const io = socketIo(server, {
   cors: {
     origin: '*',
     methods: ['GET', 'POST']
-  }
+  },
+  maxHttpBufferSize: 5e6 // 5MB buffer size for Socket.IO (for large images)
 });
 
 // Middleware
 app.use(cors());
-app.use(express.json({ limit: '50mb' })); // Increased limit for image uploads
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' })); // Increased limit for image uploads
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Error handling for JSON parsing
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Invalid JSON payload' 
+    });
+  }
+  next();
+});
 
 // Set io instance for routes to use
 app.set('io', io);
@@ -50,6 +62,7 @@ io.on('connection', (socket) => {
   
   // Handle camera data
   socket.on('camera-data', (data) => {
+    console.log('Received camera data from client');
     io.emit('camera-update', data);
   });
   
@@ -62,6 +75,7 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Access the dashboard at http://localhost:${PORT}`);
 });
 
 // Export for testing

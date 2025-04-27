@@ -444,4 +444,52 @@ document.addEventListener('DOMContentLoaded', () => {
         connectionStatusMobile.textContent = 'Connecting...';
         connectionStatusMobile.classList.add('text-yellow-500');
     }
+
+    // Camera streaming elements
+    const cameraFeed = document.getElementById('camera-feed');
+    const cameraStream = document.getElementById('camera-stream');
+    const streamStatus = document.getElementById('stream-status');
+    const cameraStatus = document.getElementById('camera-status');
+    const refreshStreamBtn = document.getElementById('refresh-stream');
+    
+    // Set up video stream
+    refreshStreamBtn.addEventListener('click', function() {
+        const cameraIp = prompt("Enter ESP32-CAM's IP address:", "");
+        if (cameraIp) {
+            // Set up the iframe with the ESP32-CAM stream URL
+            const streamUrl = `http://${cameraIp}/stream`;
+            cameraStream.src = streamUrl;
+            cameraStream.style.display = 'block';
+            cameraFeed.style.display = 'none';
+            streamStatus.classList.remove('hidden');
+            cameraStatus.textContent = `Connected to stream at ${cameraIp}`;
+            cameraStatus.classList.remove('text-gray-500');
+            cameraStatus.classList.add('text-green-600');
+            
+            // Store the stream URL in localStorage for persistence
+            localStorage.setItem('esp32CamStreamUrl', streamUrl);
+        }
+    });
+    
+    // Check if we have a saved stream URL
+    const savedStreamUrl = localStorage.getItem('esp32CamStreamUrl');
+    if (savedStreamUrl) {
+        cameraStream.src = savedStreamUrl;
+        cameraStream.style.display = 'block';
+        cameraFeed.style.display = 'none';
+        streamStatus.classList.remove('hidden');
+        cameraStatus.textContent = `Connected to saved stream`;
+        cameraStatus.classList.remove('text-gray-500');
+        cameraStatus.classList.add('text-green-600');
+    }
+    
+    // Handle stream errors
+    cameraStream.onerror = function() {
+        cameraStream.style.display = 'none';
+        cameraFeed.style.display = 'block';
+        streamStatus.classList.add('hidden');
+        cameraStatus.textContent = 'Stream connection failed. Please try again.';
+        cameraStatus.classList.remove('text-green-600');
+        cameraStatus.classList.add('text-red-500');
+    };
 }); 

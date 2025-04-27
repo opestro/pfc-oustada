@@ -26,11 +26,11 @@
 #include <Adafruit_MLX90614.h>
 
 // WiFi credentials
-const char* ssid = "OnePlus 11R 5G";
-const char* password = "qwerty123.";
+const char* ssid = "OldSchool";
+const char* password = "025432190@";
 
 // Server details
-const char* serverUrl = "http://192.168.1.13:3000/api/esp32";  // Update this to your server's IP address
+const char* serverUrl = "https://pfcn12.cscclub.space/api/esp32";  // Update this to your server's IP address
 
 // DHT22 sensor setup
 #define DHTPIN 5      // Digital pin connected to the DHT sensor

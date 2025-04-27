@@ -15,6 +15,7 @@ let sensorData = {
 
 // Store the latest camera image
 let latestCameraImage = null;
+let lastImageUpdate = null;
 
 // Get all sensor data
 router.get('/data', (req, res) => {
@@ -28,7 +29,8 @@ router.get('/data', (req, res) => {
 router.get('/camera', (req, res) => {
   res.json({
     success: true,
-    image: latestCameraImage || null
+    image: latestCameraImage || null,
+    lastUpdate: lastImageUpdate
   });
 });
 
@@ -92,19 +94,33 @@ router.post('/camera', (req, res) => {
   const data = req.body;
   
   if (data && data.image) {
-    // Store the latest image
-    latestCameraImage = data.image;
-    
-    // Broadcast to Socket.IO clients
-    const io = req.app.get('io');
-    if (io) {
-      io.emit('camera-update', { image: data.image });
+    try {
+      // Store the latest image
+      latestCameraImage = data.image;
+      lastImageUpdate = new Date().toISOString();
+      
+      console.log(`Received camera image: ${data.image.substring(0, 50)}... (${data.image.length} bytes)`);
+      
+      // Broadcast to Socket.IO clients
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('camera-update', { 
+          image: data.image,
+          timestamp: lastImageUpdate
+        });
+      }
+      
+      res.json({
+        success: true,
+        message: 'Camera image updated successfully'
+      });
+    } catch (error) {
+      console.error('Error processing camera image:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error processing image data'
+      });
     }
-    
-    res.json({
-      success: true,
-      message: 'Camera image updated successfully'
-    });
   } else {
     res.status(400).json({
       success: false,
