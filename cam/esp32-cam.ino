@@ -1,66 +1,27 @@
 #include "esp_camera.h"
 #include <WiFi.h>
 #include <HTTPClient.h>
-#include <Base64.h>
+#include <base64.h>
 
-//
-// WARNING!!! PSRAM IC required for UXGA resolution and high JPEG quality
-//            Ensure ESP32 Wrover Module or other board with PSRAM is selected
-//            Partial images will be transmitted if image exceeds buffer size
-//
-//            You must select partition scheme from the board menu that has at least 3MB APP space.
-//            Face Recognition is DISABLED for ESP32 and ESP32-S2, because it takes up from 15
-//            seconds to process single frame. Face Detection is ENABLED if PSRAM is enabled as well
-
-// ===================
-// Select camera model
-// ===================
-//#define CAMERA_MODEL_WROVER_KIT // Has PSRAM
-//#define CAMERA_MODEL_ESP_EYE  // Has PSRAM
-//#define CAMERA_MODEL_ESP32S3_EYE // Has PSRAM
-//#define CAMERA_MODEL_M5STACK_PSRAM // Has PSRAM
-//#define CAMERA_MODEL_M5STACK_V2_PSRAM // M5Camera version B Has PSRAM
-//#define CAMERA_MODEL_M5STACK_WIDE // Has PSRAM
-//#define CAMERA_MODEL_M5STACK_ESP32CAM // No PSRAM
-//#define CAMERA_MODEL_M5STACK_UNITCAM // No PSRAM
-//#define CAMERA_MODEL_M5STACK_CAMS3_UNIT  // Has PSRAM
-#define CAMERA_MODEL_AI_THINKER // Has PSRAM
-//#define CAMERA_MODEL_TTGO_T_JOURNAL // No PSRAM
-//#define CAMERA_MODEL_XIAO_ESP32S3 // Has PSRAM
-// ** Espressif Internal Boards **
-//#define CAMERA_MODEL_ESP32_CAM_BOARD
-//#define CAMERA_MODEL_ESP32S2_CAM_BOARD
-//#define CAMERA_MODEL_ESP32S3_CAM_LCD
-//#define CAMERA_MODEL_DFRobot_FireBeetle2_ESP32S3 // Has PSRAM
-//#define CAMERA_MODEL_DFRobot_Romeo_ESP32S3 // Has PSRAM
+// Camera pins configuration
+#define CAMERA_MODEL_AI_THINKER
 #include "camera_pins.h"
 
-// ===========================
-// Enter your WiFi credentials
-// ===========================
-const char *ssid = "OldSchool";
-const char *password = "025432190@";
+// WiFi credentials
+const char* ssid = "OldSchool";
+const char* password = "025432190@";
 
-// Node.js server details
-const char *serverUrl = "https://pfcn12.cscclub.space/api/camera";
+// Server URL
+const char* serverUrl = "https://pfcn12.cscclub.space/api/camera";
 
 // Update interval (milliseconds)
-const unsigned long updateInterval = 5000; // Send frame every 5 seconds
+const unsigned long updateInterval = 100; // 10 FPS
 unsigned long previousMillis = 0;
-
-// LED pin for status indication
-#define FLASH_LED_PIN 4
-
-void setupLedFlash(int pin);
 
 void setup() {
   Serial.begin(115200);
   Serial.setDebugOutput(true);
   Serial.println();
-
-  // Initialize flash LED
-  pinMode(FLASH_LED_PIN, OUTPUT);
-  digitalWrite(FLASH_LED_PIN, LOW);
 
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
@@ -82,205 +43,105 @@ void setup() {
   config.pin_pwdn = PWDN_GPIO_NUM;
   config.pin_reset = RESET_GPIO_NUM;
   config.xclk_freq_hz = 20000000;
-  config.frame_size = FRAMESIZE_VGA; // VGA resolution (640x480)
-  config.pixel_format = PIXFORMAT_JPEG;  // for streaming
-  config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;
+  config.frame_size = FRAMESIZE_VGA;
+  config.pixel_format = PIXFORMAT_JPEG;
+  config.grab_mode = CAMERA_GRAB_LATEST;
   config.fb_location = CAMERA_FB_IN_PSRAM;
   config.jpeg_quality = 12;
   config.fb_count = 1;
 
-  // if PSRAM IC present, init with higher resolution and JPEG quality
-  if (config.pixel_format == PIXFORMAT_JPEG) {
-    if (psramFound()) {
-      config.jpeg_quality = 20; // Lower quality for faster transmission
-      config.fb_count = 2;
-      config.grab_mode = CAMERA_GRAB_LATEST;
-    } else {
-      // Limit the frame size when PSRAM is not available
-      config.frame_size = FRAMESIZE_SVGA;
-      config.fb_location = CAMERA_FB_IN_DRAM;
-    }
-  } else {
-    // Best option for face detection/recognition
-    config.frame_size = FRAMESIZE_240X240;
-#if CONFIG_IDF_TARGET_ESP32S3
-    config.fb_count = 2;
-#endif
-  }
-
-#if defined(CAMERA_MODEL_ESP_EYE)
-  pinMode(13, INPUT_PULLUP);
-  pinMode(14, INPUT_PULLUP);
-#endif
-
-  // camera init
+  // Initialize camera
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
     Serial.printf("Camera init failed with error 0x%x", err);
     return;
   }
 
-  sensor_t *s = esp_camera_sensor_get();
-  // initial sensors are flipped vertically and colors are a bit saturated
-  if (s->id.PID == OV3660_PID) {
-    s->set_vflip(s, 1);        // flip it back
-    s->set_brightness(s, 1);   // up the brightness just a bit
-    s->set_saturation(s, -2);  // lower the saturation
+  // Optimize camera settings
+  sensor_t* s = esp_camera_sensor_get();
+  if (s) {
+    s->set_framesize(s, FRAMESIZE_VGA);
+    s->set_quality(s, 10);
+    s->set_brightness(s, 1);
+    s->set_contrast(s, 1);
+    s->set_saturation(s, 1);
+    s->set_special_effect(s, 0);
+    s->set_whitebal(s, 1);
+    s->set_awb_gain(s, 1);
+    s->set_wb_mode(s, 0);
+    s->set_exposure_ctrl(s, 1);
+    s->set_aec2(s, 0);
+    s->set_gain_ctrl(s, 1);
+    s->set_agc_gain(s, 0);
+    s->set_gainceiling(s, (gainceiling_t)0);
+    s->set_bpc(s, 0);
+    s->set_wpc(s, 1);
+    s->set_raw_gma(s, 1);
+    s->set_lenc(s, 1);
+    s->set_hmirror(s, 0);
+    s->set_vflip(s, 0);
+    s->set_dcw(s, 1);
+    s->set_colorbar(s, 0);
   }
-  // drop down frame size for higher initial frame rate
-  if (config.pixel_format == PIXFORMAT_JPEG) {
-    s->set_framesize(s, FRAMESIZE_QVGA); // Use a smaller frame size for faster transmission
-  }
-
-#if defined(CAMERA_MODEL_M5STACK_WIDE) || defined(CAMERA_MODEL_M5STACK_ESP32CAM)
-  s->set_vflip(s, 1);
-  s->set_hmirror(s, 1);
-#endif
-
-#if defined(CAMERA_MODEL_ESP32S3_EYE)
-  s->set_vflip(s, 1);
-#endif
 
   // Connect to WiFi
   WiFi.begin(ssid, password);
-  WiFi.setSleep(false);
-
-  Serial.print("WiFi connecting");
-  int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+  Serial.print("Connecting to WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
-    attempts++;
   }
-  Serial.println("");
-  
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("WiFi connected");
-    Serial.print("IP address: ");
-    Serial.println(WiFi.localIP());
-  } else {
-    Serial.println("WiFi connection failed. Restarting...");
-    delay(3000);
-    ESP.restart();
-  }
+  Serial.println();
+  Serial.print("Connected! IP Address: ");
+  Serial.println(WiFi.localIP());
 }
 
 void loop() {
   unsigned long currentMillis = millis();
-  
+
   // Check WiFi connection
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("WiFi disconnected, reconnecting...");
+    Serial.println("WiFi disconnected. Reconnecting...");
     WiFi.begin(ssid, password);
-    delay(5000); // Wait for reconnection
-    
-    if (WiFi.status() != WL_CONNECTED) {
-      Serial.println("Failed to reconnect. Restarting...");
-      ESP.restart();
-    }
+    return;
   }
-  
-  // Send camera frame at regular intervals
+
+  // Send frame at regular intervals
   if (currentMillis - previousMillis >= updateInterval) {
     previousMillis = currentMillis;
-    
-    // Turn on LED while capturing
-    digitalWrite(FLASH_LED_PIN, HIGH);
-    
-    // Capture frame
-    camera_fb_t* fb = esp_camera_fb_get();
-    if (!fb) {
-      Serial.println("Camera capture failed");
-      digitalWrite(FLASH_LED_PIN, LOW);
-      return;
-    }
-    
-    // Send image to server
-    sendImageToServer(fb);
-    
-    // Return the frame buffer back to be reused
-    esp_camera_fb_return(fb);
-    
-    // Turn off LED
-    digitalWrite(FLASH_LED_PIN, LOW);
+    sendCameraImage();
   }
-  
-  delay(100);
 }
 
-void sendImageToServer(camera_fb_t* fb) {
-  if (WiFi.status() == WL_CONNECTED) {
-    HTTPClient http;
-    
-    Serial.print("Sending image to server... ");
-    Serial.print("Image size: ");
-    Serial.println(fb->len);
-    
-    // Begin HTTP connection
-    http.begin(serverUrl);
-    http.addHeader("Content-Type", "application/json");
-    
-    // Encode image in base64
-    String imageBase64 = base64_encode(fb->buf, fb->len);
-    
-    // Create JSON payload
-    String jsonPayload = "{\"image\":\"" + imageBase64 + "\"}";
-    
-    // Send the request
-    int httpResponseCode = http.POST(jsonPayload);
-    
-    if (httpResponseCode > 0) {
-      String response = http.getString();
-      Serial.println("HTTP Response code: " + String(httpResponseCode));
-      Serial.println("Server response: " + response);
-    } else {
-      Serial.print("Error on sending HTTP request: ");
-      Serial.println(httpResponseCode);
-    }
-    
-    http.end();
+void sendCameraImage() {
+  camera_fb_t* fb = esp_camera_fb_get();
+  if (!fb) {
+    Serial.println("Camera capture failed");
+    return;
+  }
+
+  HTTPClient http;
+  http.begin(serverUrl);
+  http.addHeader("Content-Type", "application/json");
+
+  // Convert image to base64
+  String base64Image = "data:image/jpeg;base64,";
+  base64Image += base64::encode(fb->buf, fb->len);
+
+  // Create JSON payload
+  String jsonPayload = "{\"image\":\"" + base64Image + "\"}";
+
+  // Send POST request
+  int httpResponseCode = http.POST(jsonPayload);
+
+  if (httpResponseCode > 0) {
+    String response = http.getString();
+    Serial.println("Image sent successfully");
   } else {
-    Serial.println("WiFi not connected");
-  }
-}
-
-// Utility function for base64 encoding
-String base64_encode(const unsigned char* data, size_t length) {
-  const char base64_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  String result;
-  int i = 0;
-  int j = 0;
-  unsigned char char_array_3[3];
-  unsigned char char_array_4[4];
-
-  while (length--) {
-    char_array_3[i++] = *(data++);
-    if (i == 3) {
-      char_array_4[0] = (char_array_3[0] & 0xfc) >> 2;
-      char_array_4[1] = ((char_array_3[0] & 0x03) << 4) + ((char_array_3[1] & 0xf0) >> 4);
-      char_array_4[2] = ((char_array_3[1] & 0x0f) << 2) + ((char_array_3[2] & 0xc0) >> 6);
-      char_array_4[3] = char_array_3[2] & 0x3f;
-
-      for (i = 0; i < 4; i++)
-        result += base64_chars[char_array_4[i]];
-      i = 0;
-    }
+    Serial.print("Error sending image: ");
+    Serial.println(httpResponseCode);
   }
 
-  if (i) {
-    for (j = i; j < 3; j++)
-      char_array_3[j] = '\0';
-
-    char_array_4[0] = (char_array_3[0] & 0xfc) >> 2;
-    char_array_4[1] = ((char_array_3[0] & 0x03) << 4) + ((char_array_3[1] & 0xf0) >> 4);
-    char_array_4[2] = ((char_array_3[1] & 0x0f) << 2) + ((char_array_3[2] & 0xc0) >> 6);
-
-    for (j = 0; j < i + 1; j++)
-      result += base64_chars[char_array_4[j]];
-
-    while (i++ < 3)
-      result += '=';
-  }
-
-  return result;
+  http.end();
+  esp_camera_fb_return(fb);
 }
