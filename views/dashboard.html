@@ -3,6 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    <!-- PWA Theme color -->
+    <meta name="theme-color" content="#0ea5e9"> <!-- primary-500 -->
+    <!-- PWA Apple specific tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="IoT Dashboard">
+    <link rel="apple-touch-icon" href="/images/icons/icon-192x192.png"> <!-- Example, ensure this icon exists -->
     <title>IoT Dashboard</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -58,6 +67,9 @@
                     <div class="flex items-center text-sm">
                         <div class="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
                         <span id="connection-status-desktop" class="text-gray-600">Connected</span>
+                    </div>
+                    <button id="installAppButton" class="hidden ml-4 px-3 py-1 bg-primary-500 text-white text-sm rounded hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
+                        <i class="fas fa-download mr-1"></i> Install App
                     </div>
                 </div>
             </div>
@@ -295,6 +307,46 @@
         // Add this to your existing JavaScript or add to dashboard.js file
         document.addEventListener('DOMContentLoaded', function() {
             const socket = io();
+            let deferredPrompt;
+            const installAppButton = document.getElementById('installAppButton');
+
+            // Check if the app is already installed (running in standalone mode) or on platforms where install isn't typical
+            if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+                console.log('App is running in standalone mode or navigator.standalone is true, hiding install button.');
+                if (installAppButton) {
+                    installAppButton.classList.add('hidden');
+                }
+            } else {
+                window.addEventListener('beforeinstallprompt', (e) => {
+                    // Prevent Chrome 67 and earlier from automatically showing the prompt
+                    e.preventDefault();
+                    // Stash the event so it can be triggered later.
+                    deferredPrompt = e;
+                    // Update UI to notify the user they can add to home screen
+                    if (installAppButton) {
+                        installAppButton.classList.remove('hidden');
+                        console.log('`beforeinstallprompt` event fired, showing install button.');
+                    }
+                });
+
+                if (installAppButton) {
+                    installAppButton.addEventListener('click', async () => {
+                        if (deferredPrompt) {
+                            // Hide our user interface that shows our A2HS button
+                            installAppButton.classList.add('hidden');
+                            // Show the prompt
+                            deferredPrompt.prompt();
+                            // Wait for the user to respond to the prompt
+                            const { outcome } = await deferredPrompt.userChoice;
+                            console.log(`User response to the install prompt: ${outcome}`);
+                            // We've used the prompt, and can't use it again, throw it away
+                            deferredPrompt = null;
+                        } else {
+                            console.log('deferredPrompt not available. Was beforeinstallprompt fired?');
+                        }
+                    });
+                }
+            }
             
             // Connect to server
             socket.on('connect', function() {
@@ -585,6 +637,30 @@
             document.getElementById('camera-status').textContent = 'Camera connected';
             document.getElementById('camera-status').className = 'text-sm text-green-500';
         });
+
+        window.addEventListener('appinstalled', () => {
+            // Hide the install button
+            if (installAppButton) {
+                installAppButton.classList.add('hidden');
+            }
+            // Clear the deferredPrompt so it can be garbage collected
+            deferredPrompt = null;
+            console.log('PWA was installed');
+        });
+
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    })
+                    .catch(error => {
+                        console.log('ServiceWorker registration failed: ', error);
+                    });
+            });
+        }
+
     </script>
 </body>
 </html> 
