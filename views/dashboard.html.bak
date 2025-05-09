@@ -3,9 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    <!-- PWA Theme color -->
+    <meta name="theme-color" content="#0ea5e9"> <!-- primary-500 -->
+    <!-- PWA Apple specific tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="IoT Dashboard">
+    <link rel="apple-touch-icon" href="/images/icons/icon-192x192.png"> <!-- Example, ensure this icon exists -->
     <title>IoT Dashboard</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/service-worker.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -58,6 +68,9 @@
                     <div class="flex items-center text-sm">
                         <div class="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
                         <span id="connection-status-desktop" class="text-gray-600">Connected</span>
+                    </div>
+                    <button id="installAppButton" class="hidden ml-4 px-3 py-1 bg-primary-500 text-white text-sm rounded hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
+                        <i class="fas fa-download mr-1"></i> Install App
                     </div>
                 </div>
             </div>
@@ -210,9 +223,24 @@
                     </div>
                     <h3 class="font-medium text-gray-700">ESP32 Cam</h3>
                 </div>
-                <div class="p-6 flex justify-center items-center">
-                    <div class="w-full h-32 overflow-hidden relative camera-container border border-gray-200 rounded-md">
-                        <img id="camera-feed" src="/images/no-image.png" alt="Camera Feed" class="max-h-full max-w-full object-contain absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+                <div class="p-6">
+                    <div class="relative w-full" style="padding-top: 75%;">
+                        <img id="camera-feed" 
+                             src="/api/camera/stream" 
+                             alt="Camera Feed" 
+                             class="absolute top-0 left-0 w-full h-full object-contain rounded-lg"
+                             onerror="this.src='/images/no-image.png'; handleCameraError();" />
+                    </div>
+                    <div class="mt-4 text-center">
+                        <span id="camera-status" class="text-sm text-gray-500">Connecting to camera...</span>
+                    </div>
+                    <div class="mt-2 flex justify-center space-x-2">
+                        <button onclick="reconnectCamera()" class="px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                            <i class="fas fa-sync-alt mr-2"></i>Reconnect
+                        </button>
+                        <button onclick="toggleFullscreen()" class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">
+                            <i class="fas fa-expand mr-2"></i>Fullscreen
+                        </button>
                     </div>
                 </div>
             </div>
@@ -280,6 +308,46 @@
         // Add this to your existing JavaScript or add to dashboard.js file
         document.addEventListener('DOMContentLoaded', function() {
             const socket = io();
+            let deferredPrompt;
+            const installAppButton = document.getElementById('installAppButton');
+
+            // Check if the app is already installed (running in standalone mode) or on platforms where install isn't typical
+            if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+                console.log('App is running in standalone mode or navigator.standalone is true, hiding install button.');
+                if (installAppButton) {
+                    installAppButton.classList.add('hidden');
+                }
+            } else {
+                window.addEventListener('beforeinstallprompt', (e) => {
+                    // Prevent Chrome 67 and earlier from automatically showing the prompt
+                    e.preventDefault();
+                    // Stash the event so it can be triggered later.
+                    deferredPrompt = e;
+                    // Update UI to notify the user they can add to home screen
+                    if (installAppButton) {
+                        installAppButton.classList.remove('hidden');
+                        console.log('`beforeinstallprompt` event fired, showing install button.');
+                    }
+                });
+
+                if (installAppButton) {
+                    installAppButton.addEventListener('click', async () => {
+                        if (deferredPrompt) {
+                            // Hide our user interface that shows our A2HS button
+                            installAppButton.classList.add('hidden');
+                            // Show the prompt
+                            deferredPrompt.prompt();
+                            // Wait for the user to respond to the prompt
+                            const { outcome } = await deferredPrompt.userChoice;
+                            console.log(`User response to the install prompt: ${outcome}`);
+                            // We've used the prompt, and can't use it again, throw it away
+                            deferredPrompt = null;
+                        } else {
+                            console.log('deferredPrompt not available. Was beforeinstallprompt fired?');
+                        }
+                    });
+                }
+            }
             
             // Connect to server
             socket.on('connect', function() {
@@ -343,29 +411,8 @@
             // Camera update
             socket.on('camera-update', function(data) {
                 if (data.image) {
-                    // Hide loading indicator
-                    document.getElementById('camera-loading').classList.add('hidden');
-                    
-                    // Update image
-                    document.getElementById('camera-feed').src = 'data:image/jpeg;base64,' + data.image;
-                    
-                    // Update status indicators
-                    document.getElementById('cam-status').classList.remove('bg-red-100', 'text-red-800', 'bg-yellow-100', 'text-yellow-800');
-                    document.getElementById('cam-status').classList.add('bg-green-100', 'text-green-800');
-                    document.getElementById('cam-status').innerText = 'Live';
-                    
-                    // Update timestamp
-                    if (data.timestamp) {
-                        const date = new Date(data.timestamp);
-                        const timeString = date.toLocaleTimeString();
-                        document.getElementById('camera-last-update').innerText = timeString;
-                    }
-                } else {
-                    // Show error state
-                    document.getElementById('camera-loading').classList.add('hidden');
-                    document.getElementById('cam-status').classList.remove('bg-green-100', 'text-green-800', 'bg-yellow-100', 'text-yellow-800');
-                    document.getElementById('cam-status').classList.add('bg-red-100', 'text-red-800');
-                    document.getElementById('cam-status').innerText = 'Error';
+                    document.getElementById('camera-status').textContent = 'Camera connected';
+                    document.getElementById('camera-status').className = 'text-sm text-green-500';
                 }
             });
             
@@ -546,41 +593,75 @@
                     }
                 })
                 .catch(error => console.error('Error fetching data:', error));
-            
-            // Initialize camera
-            initializeCamera();
-            
-            function initializeCamera() {
-                // Get the latest camera image
-                fetch('/api/camera')
-                    .then(response => response.json())
-                    .then(result => {
-                        if (result.success && result.image) {
-                            // Show the camera image
-                            document.getElementById('camera-feed').src = 'data:image/jpeg;base64,' + result.image;
-                            document.getElementById('camera-loading').classList.add('hidden');
-                            
-                            // Update timestamp
-                            if (result.lastUpdate) {
-                                const date = new Date(result.lastUpdate);
-                                document.getElementById('camera-last-update').innerText = date.toLocaleTimeString();
-                            }
-                        } else {
-                            // If no camera image found, show waiting state
-                            document.getElementById('cam-status').classList.remove('bg-green-100', 'text-green-800');
-                            document.getElementById('cam-status').classList.add('bg-yellow-100', 'text-yellow-800');
-                            document.getElementById('cam-status').innerText = 'Waiting';
-                        }
+        });
+
+        // Add these functions to your existing JavaScript
+        function handleCameraError() {
+            document.getElementById('camera-status').textContent = 'Camera disconnected';
+            document.getElementById('camera-status').className = 'text-sm text-red-500';
+        }
+
+        function reconnectCamera() {
+            const img = document.getElementById('camera-feed');
+            img.src = '/api/camera/stream?' + new Date().getTime();
+            document.getElementById('camera-status').textContent = 'Connecting to camera...';
+            document.getElementById('camera-status').className = 'text-sm text-gray-500';
+        }
+
+        function toggleFullscreen() {
+            const img = document.getElementById('camera-feed');
+            if (!document.fullscreenElement) {
+                if (img.requestFullscreen) {
+                    img.requestFullscreen();
+                } else if (img.webkitRequestFullscreen) {
+                    img.webkitRequestFullscreen();
+                } else if (img.msRequestFullscreen) {
+                    img.msRequestFullscreen();
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+            }
+        }
+
+        // Add error handling for the stream
+        document.getElementById('camera-feed').addEventListener('error', function() {
+            handleCameraError();
+        });
+
+        document.getElementById('camera-feed').addEventListener('load', function() {
+            document.getElementById('camera-status').textContent = 'Camera connected';
+            document.getElementById('camera-status').className = 'text-sm text-green-500';
+        });
+
+        window.addEventListener('appinstalled', () => {
+            // Hide the install button
+            if (installAppButton) {
+                installAppButton.classList.add('hidden');
+            }
+            // Clear the deferredPrompt so it can be garbage collected
+            deferredPrompt = null;
+            console.log('PWA was installed');
+        });
+
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
                     })
                     .catch(error => {
-                        console.error('Error fetching camera image:', error);
-                        document.getElementById('camera-loading').classList.add('hidden');
-                        document.getElementById('cam-status').classList.remove('bg-green-100', 'text-green-800');
-                        document.getElementById('cam-status').classList.add('bg-red-100', 'text-red-800');
-                        document.getElementById('cam-status').innerText = 'Error';
+                        console.log('ServiceWorker registration failed: ', error);
                     });
-            }
-        });
+            });
+        }
+
     </script>
 </body>
 </html> 

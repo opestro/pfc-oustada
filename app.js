@@ -32,8 +32,13 @@ app.set('io', io);
 // Routes
 app.use('/api', apiRoutes);
 
-// Serve the main dashboard
+// Redirect root to /dashboard
 app.get('/', (req, res) => {
+  res.redirect('/dashboard');
+});
+
+// Serve the main dashboard from /dashboard to match PWA start_url
+app.get('/dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'dashboard.html'));
 });
 
