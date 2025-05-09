@@ -47,25 +47,11 @@
   ],
   "screenshots": [
     {
-      "src": "/images/screenshots/screenshot-mobile-1.png",
-      "sizes": "540x720",
+      "src": "/images/mobile.png",
+      "sizes": "860x1327",
       "type": "image/png",
       "form_factor": "narrow",
       "label": "Mobile Dashboard View"
-    },
-    {
-      "src": "/images/screenshots/screenshot-mobile-2.png",
-      "sizes": "540x720",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Mobile Sensor Details"
-    },
-    {
-      "src": "/images/screenshots/screenshot-desktop-1.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "Desktop Dashboard Overview"
     }
   ]
 }
